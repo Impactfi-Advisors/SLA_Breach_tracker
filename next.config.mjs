@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['@libsql/client'],
+  experimental: {
+    serverComponentsExternalPackages: ['@libsql/client'],
+  },
 }
 
 export default nextConfig
