@@ -2,12 +2,15 @@ import { getClaudeClient } from '@/lib/claude'
 import type { ParsedEvent } from '@/types'
 
 export class EmailParserService {
-  static async parse(rawEmail: string): Promise<ParsedEvent> {
+  static async parse(rawEmail: string, hintVendor?: string): Promise<ParsedEvent> {
     const client = getClaudeClient()
+    const vendorHint = hintVendor
+      ? `\nThe vendor is known to be: "${hintVendor}". Use this exact value for the vendor field.`
+      : ''
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 256,
-      system: `You are an email parser that extracts vendor downtime information.
+      system: `You are an email parser that extracts vendor downtime information.${vendorHint}
 Return ONLY valid JSON with this exact schema — no other text:
 {
   "vendor": "<company name>",

@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
   if (typeof month !== 'number' || month < 1 || month > 12) {
     return NextResponse.json({ error: 'month must be 1–12' }, { status: 400 })
   }
-  if (typeof year !== 'number' || !Number.isInteger(year) || year < 2000) {
-    return NextResponse.json({ error: 'year must be an integer >= 2000' }, { status: 400 })
+  const currentYear = new Date().getFullYear()
+  if (typeof year !== 'number' || !Number.isInteger(year) || year < 2000 || year > currentYear + 1) {
+    return NextResponse.json({ error: `year must be between 2000 and ${currentYear + 1}` }, { status: 400 })
   }
 
   const outages = await getBreachedOutagesByVendorMonth(vendor, month, year)

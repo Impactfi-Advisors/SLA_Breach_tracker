@@ -35,3 +35,53 @@ export interface BreachResult {
   penalty: number
   excessMins: number
 }
+
+export interface Company {
+  id: number
+  name: string
+  domains: string        // JSON array string: '["acme.com","status.acme.com"]'
+  access_token: string | null
+  created_at: string
+}
+
+export interface Product {
+  id: number
+  vendor: string
+  name: string
+  category: 'core' | 'mobile' | 'web' | 'api' | 'other'
+  created_at: string
+}
+
+export interface EmailAccount {
+  id: number
+  label: string
+  host: string
+  port: number
+  tls: number
+  username: string
+  // password intentionally omitted from UI type
+  mailbox: string
+  last_uid: number
+  active: number
+  created_at: string
+}
+
+export interface PollLogEntry {
+  id: number
+  account_id: number
+  message_uid: number | null
+  subject: string | null
+  sender: string | null
+  matched_vendor: string | null
+  status: 'processed' | 'skipped' | 'error' | 'duplicate'
+  error_msg: string | null
+  event_id: number | null
+  processed_at: string
+}
+
+export interface IngestionResult {
+  status: 'processed' | 'skipped' | 'error' | 'duplicate'
+  eventId?: number
+  errorMsg?: string
+  vendor?: string
+}

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { NavLinks } from './components/NavLinks'
+import { LogoutButton } from './components/LogoutButton'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -34,11 +35,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavLinks />
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-800">
+            <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="text-xs text-slate-500">System operational</span>
               </div>
+              <LogoutButton />
             </div>
           </nav>
 

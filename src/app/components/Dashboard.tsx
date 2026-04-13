@@ -203,7 +203,7 @@ export default function DashboardPage() {
                 </svg>
               </div>
               <p className="text-slate-500 text-sm font-medium">No insights yet</p>
-              <p className="text-slate-400 text-xs mt-1">Click "Generate Insights" to get AI-powered analysis of your SLA data.</p>
+              <p className="text-slate-400 text-xs mt-1">Click &quot;Generate Insights&quot; to get AI-powered analysis of your SLA data.</p>
             </div>
           )}
 
