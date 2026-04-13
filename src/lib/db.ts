@@ -122,6 +122,26 @@ export async function getOutages(): Promise<Outage[]> {
   return result.rows as unknown as Outage[]
 }
 
+export async function getResolvedOutageMinsForMonth(
+  vendor: string,
+  product: string,
+  month: number,
+  year: number
+): Promise<number> {
+  const db = getDb()
+  const result = await db.execute({
+    sql: `SELECT COALESCE(SUM(duration_mins), 0) AS total
+          FROM outages
+          WHERE vendor = ?
+            AND product = ?
+            AND resolved_at IS NOT NULL
+            AND strftime('%m', started_at) = ?
+            AND strftime('%Y', started_at) = ?`,
+    args: [vendor, product, String(month).padStart(2, '0'), String(year)],
+  })
+  return Number((result.rows[0] as unknown as { total: number }).total)
+}
+
 export async function getBreachedOutagesByVendorMonth(
   vendor: string,
   month: number,

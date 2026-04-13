@@ -9,11 +9,19 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { vendor, product, uptime_pct, penalty_per_hr } = body
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+  const { vendor, product, uptime_pct, penalty_per_hr } = body as Record<string, unknown>
 
   if (!vendor || !product || uptime_pct == null || penalty_per_hr == null) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+  if (typeof vendor !== 'string' || typeof product !== 'string') {
+    return NextResponse.json({ error: 'vendor and product must be strings' }, { status: 400 })
   }
   if (typeof uptime_pct !== 'number' || uptime_pct < 0 || uptime_pct > 100) {
     return NextResponse.json({ error: 'uptime_pct must be a number between 0 and 100' }, { status: 400 })

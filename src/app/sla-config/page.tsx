@@ -5,14 +5,17 @@ import type { SLARule } from '@/types'
 
 export default function SLAConfigPage() {
   const [rules, setRules] = useState<SLARule[]>([])
-  const [form, setForm] = useState({
-    vendor: '',
-    product: '',
-    uptime_pct: '',
-    penalty_per_hr: '',
-  })
+  const [form, setForm] = useState({ vendor: '', product: '', uptime_pct: '', penalty_per_hr: '' })
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   async function loadRules() {
     const res = await fetch('/api/sla-rules')
@@ -26,13 +29,14 @@ export default function SLAConfigPage() {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
+    const { vendor, product } = form
     try {
       const res = await fetch('/api/sla-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vendor: form.vendor,
-          product: form.product,
+          vendor,
+          product,
           uptime_pct: parseFloat(form.uptime_pct),
           penalty_per_hr: parseFloat(form.penalty_per_hr),
         }),
@@ -40,6 +44,7 @@ export default function SLAConfigPage() {
       const data = await res.json()
       if (!res.ok) { setError(data.error as string); return }
       setForm({ vendor: '', product: '', uptime_pct: '', penalty_per_hr: '' })
+      setToast(`Rule added for ${vendor} / ${product}`)
       await loadRules()
     } finally {
       setSubmitting(false)
@@ -48,42 +53,84 @@ export default function SLAConfigPage() {
 
   async function handleDelete(id: number) {
     await fetch(`/api/sla-rules/${id}`, { method: 'DELETE' })
+    setConfirmDelete(null)
     await loadRules()
   }
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">SLA Configuration</h1>
+  const inputClass = 'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-400'
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
+  return (
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900">SLA Configuration</h1>
+        <p className="text-sm text-slate-500 mt-1">Define SLA terms and penalty rates for each vendor product.</p>
+      </div>
+
+      {toast && (
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex justify-between items-center text-sm text-emerald-800 font-medium">
+          <span>{toast}</span>
+          <button className="ml-3 opacity-50 hover:opacity-100 text-lg leading-none" onClick={() => setToast(null)}>×</button>
+        </div>
+      )}
+
+      {/* Confirm delete modal */}
+      {confirmDelete !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 6v5M10 14h.01" stroke="#ef4444" strokeWidth="2" strokeLinecap="round"/>
+                <circle cx="10" cy="10" r="8" stroke="#ef4444" strokeWidth="1.5"/>
+              </svg>
+            </div>
+            <h3 className="font-bold text-slate-900 text-center mb-1">Delete SLA Rule?</h3>
+            <p className="text-sm text-slate-500 text-center mb-6">This cannot be undone. Future outages for this product won&apos;t be evaluated for breaches.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">
+                Cancel
+              </button>
+              <button onClick={() => handleDelete(confirmDelete)} className="flex-1 px-4 py-2.5 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rules table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-6">
+        <div className="px-6 py-4 border-b border-slate-100">
+          <span className="font-semibold text-slate-800 text-sm">Active Rules</span>
+          <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">{rules.length}</span>
+        </div>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              {['Vendor', 'Product', 'Uptime %', 'Penalty / hr', ''].map(h => (
-                <th key={h} className="text-left px-4 py-3 text-gray-600 font-medium">{h}</th>
+          <thead>
+            <tr className="border-b border-slate-100">
+              {['Vendor', 'Product', 'Uptime SLA', 'Penalty / hr', ''].map(h => (
+                <th key={h} className="text-left px-6 py-3 text-slate-400 font-medium text-xs uppercase tracking-wide">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rules.length === 0 && (
+            {rules.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                  No SLA rules defined yet.
+                <td colSpan={5} className="px-6 py-12 text-center">
+                  <p className="text-slate-400 text-sm font-medium">No rules defined yet.</p>
+                  <p className="text-slate-400 text-xs mt-1">Add your first rule using the form below.</p>
                 </td>
               </tr>
-            )}
+            ) : null}
             {rules.map(rule => (
-              <tr key={rule.id} className="border-t border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-3">{rule.vendor}</td>
-                <td className="px-4 py-3">{rule.product}</td>
-                <td className="px-4 py-3">{rule.uptime_pct}%</td>
-                <td className="px-4 py-3">${rule.penalty_per_hr.toFixed(2)}/hr</td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => handleDelete(rule.id)}
-                    className="text-red-600 hover:text-red-800 text-xs"
-                  >
-                    Delete
+              <tr key={rule.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                <td className="px-6 py-3.5 font-semibold text-slate-800">{rule.vendor}</td>
+                <td className="px-6 py-3.5 text-slate-600">{rule.product}</td>
+                <td className="px-6 py-3.5">
+                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-semibold text-xs">{rule.uptime_pct}%</span>
+                </td>
+                <td className="px-6 py-3.5 text-slate-700 font-medium">${rule.penalty_per_hr.toFixed(2)}<span className="text-slate-400 font-normal">/hr</span></td>
+                <td className="px-6 py-3.5 text-right">
+                  <button onClick={() => setConfirmDelete(rule.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                    Remove
                   </button>
                 </td>
               </tr>
@@ -92,51 +139,39 @@ export default function SLAConfigPage() {
         </table>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 max-w-lg">
-        <h2 className="font-semibold mb-4 text-gray-700">Add SLA Rule</h2>
-        {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-        <form onSubmit={handleAdd} className="grid grid-cols-2 gap-3">
-          <input
-            className="border border-gray-300 rounded px-3 py-2 text-sm col-span-1"
-            placeholder="Vendor name"
-            value={form.vendor}
-            onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))}
-            required
-          />
-          <input
-            className="border border-gray-300 rounded px-3 py-2 text-sm col-span-1"
-            placeholder="Product name"
-            value={form.product}
-            onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
-            required
-          />
-          <input
-            className="border border-gray-300 rounded px-3 py-2 text-sm col-span-1"
-            type="number"
-            step="0.001"
-            min="0"
-            max="100"
-            placeholder="Uptime % (e.g. 99.9)"
-            value={form.uptime_pct}
-            onChange={e => setForm(f => ({ ...f, uptime_pct: e.target.value }))}
-            required
-          />
-          <input
-            className="border border-gray-300 rounded px-3 py-2 text-sm col-span-1"
-            type="number"
-            step="0.01"
-            min="0.01"
-            placeholder="Penalty per hour ($)"
-            value={form.penalty_per_hr}
-            onChange={e => setForm(f => ({ ...f, penalty_per_hr: e.target.value }))}
-            required
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            className="col-span-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
-          >
-            {submitting ? 'Saving...' : 'Save Rule'}
+      {/* Add form */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 max-w-xl">
+        <h2 className="font-bold text-slate-800 mb-5">Add SLA Rule</h2>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>
+        )}
+        <form onSubmit={handleAdd} className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Vendor name</label>
+            <input className={inputClass} placeholder="e.g. Acme Corp" value={form.vendor}
+              onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Product / service</label>
+            <input className={inputClass} placeholder="e.g. Cloud Storage" value={form.product}
+              onChange={e => setForm(f => ({ ...f, product: e.target.value }))} required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Uptime SLA (%)</label>
+            <input className={inputClass} type="number" step="0.001" min="0" max="100"
+              placeholder="99.9" value={form.uptime_pct}
+              onChange={e => setForm(f => ({ ...f, uptime_pct: e.target.value }))} required />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Penalty per hour ($)</label>
+            <input className={inputClass} type="number" step="0.01" min="0.01"
+              placeholder="500.00" value={form.penalty_per_hr}
+              onChange={e => setForm(f => ({ ...f, penalty_per_hr: e.target.value }))} required />
+          </div>
+          <button type="submit" disabled={submitting}
+            className="col-span-2 flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold transition-colors">
+            {submitting && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {submitting ? 'Saving…' : 'Save Rule'}
           </button>
         </form>
       </div>

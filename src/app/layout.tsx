@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import Link from 'next/link'
 import './globals.css'
+import { NavLinks } from './components/NavLinks'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -10,32 +10,39 @@ export const metadata: Metadata = {
   description: 'Track vendor SLA breaches and generate chargeback reports',
 }
 
-const navLinks = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/inbox', label: 'Email Inbox' },
-  { href: '/sla-config', label: 'SLA Config' },
-  { href: '/breach-log', label: 'Breach Log' },
-  { href: '/report', label: 'Reports' },
-]
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex min-h-screen">
-          <nav className="w-56 shrink-0 bg-gray-900 text-white p-4 flex flex-col gap-1">
-            <div className="text-lg font-bold mb-4 px-3 text-blue-400">SLA Tracker</div>
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="px-3 py-2 rounded text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
+        <div className="flex min-h-screen bg-slate-50">
+          <nav className="w-64 shrink-0 bg-slate-900 flex flex-col">
+            <div className="px-6 py-6 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 4h5v5H2zM9 4h5v5H9zM2 11h5v3H2zM9 11h5v3H9z" fill="white" fillOpacity="0.9"/>
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white leading-tight">SLA Tracker</div>
+                  <div className="text-xs text-slate-500 leading-tight">Breach Management</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 px-3 py-4">
+              <NavLinks />
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-xs text-slate-500">System operational</span>
+              </div>
+            </div>
           </nav>
-          <main className="flex-1 bg-gray-50 min-h-screen">{children}</main>
+
+          <main className="flex-1 min-h-screen overflow-auto">{children}</main>
         </div>
       </body>
     </html>

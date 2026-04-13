@@ -64,89 +64,92 @@ export default function ReportPage() {
     doc.setFontSize(10)
     const lines = doc.splitTextToSize(letter, 180)
     doc.text(lines, 15, 20)
-    doc.save(
-      `chargeback-${vendor.replace(/\s+/g, '-')}-${year}-${String(month).padStart(2, '0')}.pdf`
-    )
+    doc.save(`chargeback-${vendor.replace(/\s+/g, '-')}-${year}-${String(month).padStart(2, '0')}.pdf`)
   }
 
   const currentYear = new Date().getFullYear()
   const years = [currentYear - 1, currentYear]
+  const selectClass = 'border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400'
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Monthly Report</h1>
+    <div className="p-8 max-w-3xl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900">Monthly Report</h1>
+        <p className="text-sm text-slate-500 mt-1">Generate an AI-written chargeback letter for a vendor&apos;s breached outages.</p>
+      </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-6">
-        <div className="flex gap-3 items-end flex-wrap">
+      {/* Controls */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+        <div className="flex gap-4 items-end flex-wrap">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Vendor</label>
-            <select
-              className="border border-gray-300 rounded px-3 py-2 text-sm min-w-[140px]"
-              value={vendor}
-              onChange={e => setVendor(e.target.value)}
-            >
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Vendor</label>
+            <select className={selectClass} value={vendor} onChange={e => setVendor(e.target.value)}>
               {vendors.length === 0 && <option value="">No vendors</option>}
               {vendors.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Month</label>
-            <select
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-              value={month}
-              onChange={e => setMonth(parseInt(e.target.value, 10))}
-            >
-              {MONTHS.map((m, i) => (
-                <option key={m} value={i + 1}>{m}</option>
-              ))}
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Month</label>
+            <select className={selectClass} value={month} onChange={e => setMonth(parseInt(e.target.value, 10))}>
+              {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
-            <select
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-              value={year}
-              onChange={e => setYear(parseInt(e.target.value, 10))}
-            >
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Year</label>
+            <select className={selectClass} value={year} onChange={e => setYear(parseInt(e.target.value, 10))}>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold transition-colors"
             onClick={handleGenerate}
             disabled={loading || !vendor}
           >
-            {loading ? 'Generating...' : 'Generate Report'}
+            {loading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {loading ? 'Generating…' : 'Generate with AI'}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-100 border border-red-400 rounded text-red-700 text-sm mb-4">
-          {error}
+        <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium">{error}</div>
+      )}
+
+      {loading && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center mb-5">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-700 font-semibold">Generating chargeback letter…</p>
+          <p className="text-slate-400 text-xs mt-1">Claude is drafting the letter with breach details.</p>
         </div>
       )}
 
       {letter && (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
-            <span className="font-semibold text-gray-700 text-sm">Chargeback Letter</span>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 1l1.2 3.6H11L8.1 6.7l1.1 3.4L6 8.1 2.9 10.1l1.1-3.4L1 4.6h3.8z" fill="#6366f1"/>
+                </svg>
+              </div>
+              <span className="font-semibold text-slate-800 text-sm">Chargeback Letter</span>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleCopy}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-slate-200 rounded-xl hover:bg-slate-50 font-medium text-slate-700 transition-colors"
               >
-                {copied ? 'Copied!' : 'Copy'}
+                {copied ? '✓ Copied' : 'Copy'}
               </button>
               <button
                 onClick={handleExportPDF}
-                className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-900"
+                className="px-4 py-2 text-sm bg-slate-800 text-white rounded-xl hover:bg-slate-900 font-medium transition-colors"
               >
                 Export PDF
               </button>
             </div>
           </div>
-          <pre className="p-4 text-sm font-mono whitespace-pre-wrap text-gray-700 max-h-[500px] overflow-y-auto">
+          <pre className="p-6 text-sm font-mono whitespace-pre-wrap text-slate-700 max-h-[600px] overflow-y-auto leading-relaxed">
             {letter}
           </pre>
         </div>
