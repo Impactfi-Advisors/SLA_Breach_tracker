@@ -127,7 +127,7 @@ export default function InboxPage() {
         </div>
         <div className="p-6">
           <textarea
-            className="w-full h-44 p-4 border border-slate-200 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y bg-slate-50 placeholder:text-slate-400"
+            className="w-full h-44 p-4 border border-slate-200 rounded-xl font-mono text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-y bg-slate-50 placeholder:text-slate-400"
             placeholder="Paste the full email text here..."
             value={rawEmail}
             onChange={e => setRawEmail(e.target.value)}
