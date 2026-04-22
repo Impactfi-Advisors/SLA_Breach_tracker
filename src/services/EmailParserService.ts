@@ -22,7 +22,8 @@ If you cannot extract the required fields, return: {"error": "<reason>"}`,
       messages: [{ role: 'user', content: rawEmail }],
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
+    const raw = response.content[0].type === 'text' ? response.content[0].text : ''
+    const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
     const parsed = JSON.parse(text)
 
     if ('error' in parsed) {
