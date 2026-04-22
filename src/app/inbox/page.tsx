@@ -91,7 +91,7 @@ export default function InboxPage() {
     }
   }
 
-  const inputClass = 'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400'
+  const inputClass = 'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400'
 
   return (
     <div className="p-8 max-w-2xl">
