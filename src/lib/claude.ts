@@ -1,21 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Anthropic from '@anthropic-ai/sdk'
 
-const MODEL_MAP: Record<string, string> = {
-  'claude-sonnet-4-20250514': 'gemini-1.5-flash',
-  'claude-haiku-4-5-20251001': 'gemini-1.5-flash',
-}
+let _client: Anthropic | null = null
 
-function resolveModel(model: string): string {
-  return MODEL_MAP[model] ?? 'gemini-1.5-flash'
-}
-
-let _genai: GoogleGenerativeAI | null = null
-
-function getGenAI(): GoogleGenerativeAI {
-  if (!_genai) {
-    _genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+function getClient(): Anthropic {
+  if (!_client) {
+    _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
   }
-  return _genai
+  return _client
 }
 
 interface CreateParams {
@@ -31,15 +22,17 @@ interface CreateResponse {
 
 const messages = {
   async create(params: CreateParams): Promise<CreateResponse> {
-    const genai = getGenAI()
-    const geminiModel = genai.getGenerativeModel({
-      model: resolveModel(params.model),
-      ...(params.system ? { systemInstruction: params.system } : {}),
-      generationConfig: { maxOutputTokens: params.max_tokens },
+    const client = getClient()
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: params.max_tokens,
+      ...(params.system ? { system: params.system } : {}),
+      messages: params.messages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
     })
-    const userMsg = params.messages.find(m => m.role === 'user')?.content ?? ''
-    const result = await geminiModel.generateContent(userMsg)
-    const text = result.response.text()
+    const text = response.content.find(b => b.type === 'text')?.text ?? ''
     return { content: [{ type: 'text', text }] }
   },
 }
