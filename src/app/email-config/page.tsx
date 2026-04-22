@@ -73,10 +73,7 @@ export default function EmailConfigPage() {
   async function handlePollNow() {
     setPolling(true)
     try {
-      const secret = (document.querySelector('meta[name="cron-secret"]') as HTMLMetaElement)?.content ?? ''
-      const res = await fetch('/api/cron/email-poll', {
-        headers: { 'x-cron-secret': process.env.NEXT_PUBLIC_CRON_SECRET ?? secret },
-      })
+      const res = await fetch('/api/poll-now', { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
         setToast({ msg: `Poll complete — processed: ${data.processed}, skipped: ${data.skipped}, errors: ${data.errors}`, type: 'success' })
