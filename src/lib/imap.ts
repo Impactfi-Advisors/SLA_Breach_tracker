@@ -5,6 +5,7 @@ export interface ImapMessage {
   uid: number
   subject: string
   from: string
+  to: string
   body: string
 }
 
@@ -45,9 +46,11 @@ export async function fetchNewMessages(
       const subject = msg.envelope?.subject ?? '(no subject)'
       const fromAddr = msg.envelope?.from?.[0]
       const from = fromAddr?.address ?? fromAddr?.name ?? ''
+      const toAddr = msg.envelope?.to?.[0]
+      const to = toAddr?.address ?? ''
       const body = msg.source ? msg.source.toString('utf8') : ''
 
-      messages.push({ uid: msg.uid, subject, from, body })
+      messages.push({ uid: msg.uid, subject, from, to, body })
     }
   } finally {
     await client.logout()

@@ -10,7 +10,7 @@ describe('POST /api/sla-rules', () => {
     const req = new Request('http://localhost/api/sla-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vendor: 'Acme' }),
+      body: JSON.stringify({ vendor: 'Fiserv' }),
     })
     const res = await POST(req)
     expect(res.status).toBe(400)
@@ -20,7 +20,7 @@ describe('POST /api/sla-rules', () => {
     const req = new Request('http://localhost/api/sla-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vendor: 'Acme', product: 'Core', uptime_pct: 101, penalty_per_hr: 500 }),
+      body: JSON.stringify({ bank_id: 1, vendor: 'Fiserv', product: 'Core', uptime_pct: 101, penalty_per_hr: 500 }),
     })
     const res = await POST(req)
     expect(res.status).toBe(400)
@@ -30,7 +30,7 @@ describe('POST /api/sla-rules', () => {
     const req = new Request('http://localhost/api/sla-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vendor: 'Acme', product: 'Core', uptime_pct: 99.9, penalty_per_hr: 0 }),
+      body: JSON.stringify({ bank_id: 1, vendor: 'Fiserv', product: 'Core', uptime_pct: 99.9, penalty_per_hr: 0 }),
     })
     const res = await POST(req)
     expect(res.status).toBe(400)
@@ -42,12 +42,12 @@ describe('POST /api/sla-rules', () => {
     const req = new Request('http://localhost/api/sla-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vendor: 'Acme', product: 'Core', uptime_pct: 99.9, penalty_per_hr: 500 }),
+      body: JSON.stringify({ bank_id: 1, vendor: 'Fiserv', product: 'Core Banking', uptime_pct: 99.9, penalty_per_hr: 500 }),
     })
     const res = await POST(req)
     expect(res.status).toBe(201)
     const data = await res.json()
     expect(data.id).toBe(42)
-    expect(data.vendor).toBe('Acme')
+    expect(data.vendor).toBe('Fiserv')
   })
 })

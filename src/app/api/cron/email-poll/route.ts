@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     for (const msg of messages) {
       const result = await EmailIngestionService.ingest({
         rawEmail: msg.body,
+        toEmail: msg.to,
         senderEmail: msg.from,
         uid: msg.uid,
         accountId: account.id,

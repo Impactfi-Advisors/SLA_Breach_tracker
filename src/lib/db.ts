@@ -1,6 +1,6 @@
 import { createClient, Client } from '@libsql/client'
 import { encrypt, decrypt, isEncrypted } from '@/lib/encryption'
-import type { ParsedEvent, RawEvent, Outage, SLARule, Company, Product, EmailAccount, PollLogEntry } from '@/types'
+import type { RawEvent, Outage, SLARule, Bank, Product, EmailAccount, PollLogEntry } from '@/types'
 
 let _db: Client | null = null
 
@@ -17,8 +17,16 @@ function getDb(): Client {
 export async function migrate(): Promise<void> {
   const db = getDb()
   await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS banks (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT NOT NULL UNIQUE,
+      email_alias  TEXT NOT NULL UNIQUE,
+      access_token TEXT UNIQUE,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS events (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      bank_id     INTEGER REFERENCES banks(id),
       vendor      TEXT NOT NULL,
       product     TEXT NOT NULL,
       event_type  TEXT NOT NULL CHECK(event_type IN ('down', 'up')),
@@ -28,6 +36,7 @@ export async function migrate(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS outages (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      bank_id       INTEGER REFERENCES banks(id),
       vendor        TEXT NOT NULL,
       product       TEXT NOT NULL,
       started_at    TEXT NOT NULL,
@@ -38,11 +47,12 @@ export async function migrate(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS sla_rules (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      bank_id         INTEGER REFERENCES banks(id),
       vendor          TEXT NOT NULL,
       product         TEXT NOT NULL,
       uptime_pct      REAL NOT NULL,
       penalty_per_hr  REAL NOT NULL,
-      UNIQUE(vendor, product)
+      UNIQUE(bank_id, vendor, product)
     );
     CREATE TABLE IF NOT EXISTS companies (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,24 +95,34 @@ export async function migrate(): Promise<void> {
       processed_at   TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `)
-  // Additive migration: add access_token to existing companies table
-  try {
-    await db.execute('ALTER TABLE companies ADD COLUMN access_token TEXT UNIQUE')
-  } catch {
-    // Column already exists — safe to ignore
+
+  // Additive migrations for existing installations
+  const migrations = [
+    'ALTER TABLE companies ADD COLUMN access_token TEXT UNIQUE',
+    'ALTER TABLE events ADD COLUMN bank_id INTEGER REFERENCES banks(id)',
+    'ALTER TABLE outages ADD COLUMN bank_id INTEGER REFERENCES banks(id)',
+    'ALTER TABLE sla_rules ADD COLUMN bank_id INTEGER REFERENCES banks(id)',
+  ]
+  for (const sql of migrations) {
+    try { await db.execute(sql) } catch { /* column already exists */ }
   }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
-export async function insertEvent(
-  event: ParsedEvent & { raw_email: string }
-): Promise<number> {
+export async function insertEvent(event: {
+  bank_id: number
+  vendor: string
+  product: string
+  event_type: 'down' | 'up'
+  timestamp: string
+  raw_email: string
+}): Promise<number> {
   const db = getDb()
   const result = await db.execute({
-    sql: `INSERT INTO events (vendor, product, event_type, timestamp, raw_email)
-          VALUES (?, ?, ?, ?, ?)`,
-    args: [event.vendor, event.product, event.event_type, event.timestamp, event.raw_email],
+    sql: `INSERT INTO events (bank_id, vendor, product, event_type, timestamp, raw_email)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [event.bank_id, event.vendor, event.product, event.event_type, event.timestamp, event.raw_email],
   })
   return Number(result.lastInsertRowid)
 }
@@ -118,29 +138,31 @@ export async function getEvents(): Promise<RawEvent[]> {
 // ── Outages ───────────────────────────────────────────────────────────────────
 
 export async function insertOutage(
+  bankId: number,
   vendor: string,
   product: string,
   startedAt: string
 ): Promise<number> {
   const db = getDb()
   const result = await db.execute({
-    sql: `INSERT INTO outages (vendor, product, started_at, breach_status)
-          VALUES (?, ?, ?, 'pending')`,
-    args: [vendor, product, startedAt],
+    sql: `INSERT INTO outages (bank_id, vendor, product, started_at, breach_status)
+          VALUES (?, ?, ?, ?, 'pending')`,
+    args: [bankId, vendor, product, startedAt],
   })
   return Number(result.lastInsertRowid)
 }
 
 export async function getOpenOutage(
+  bankId: number,
   vendor: string,
   product: string
 ): Promise<Outage | null> {
   const db = getDb()
   const result = await db.execute({
     sql: `SELECT * FROM outages
-          WHERE vendor = ? AND product = ? AND resolved_at IS NULL
+          WHERE bank_id = ? AND vendor = ? AND product = ? AND resolved_at IS NULL
           ORDER BY started_at DESC LIMIT 1`,
-    args: [vendor, product],
+    args: [bankId, vendor, product],
   })
   return result.rows.length > 0 ? (result.rows[0] as unknown as Outage) : null
 }
@@ -169,7 +191,17 @@ export async function getOutages(): Promise<Outage[]> {
   return result.rows as unknown as Outage[]
 }
 
+export async function getOutagesByBank(bankId: number): Promise<Outage[]> {
+  const db = getDb()
+  const result = await db.execute({
+    sql: 'SELECT * FROM outages WHERE bank_id = ? ORDER BY started_at DESC',
+    args: [bankId],
+  })
+  return result.rows as unknown as Outage[]
+}
+
 export async function getResolvedOutageMinsForMonth(
+  bankId: number,
   vendor: string,
   product: string,
   month: number,
@@ -179,17 +211,19 @@ export async function getResolvedOutageMinsForMonth(
   const result = await db.execute({
     sql: `SELECT COALESCE(SUM(duration_mins), 0) AS total
           FROM outages
-          WHERE vendor = ?
+          WHERE bank_id = ?
+            AND vendor = ?
             AND product = ?
             AND resolved_at IS NOT NULL
             AND strftime('%m', started_at) = ?
             AND strftime('%Y', started_at) = ?`,
-    args: [vendor, product, String(month).padStart(2, '0'), String(year)],
+    args: [bankId, vendor, product, String(month).padStart(2, '0'), String(year)],
   })
   return Number((result.rows[0] as unknown as { total: number }).total)
 }
 
 export async function getBreachedOutagesByVendorMonth(
+  bankId: number,
   vendor: string,
   month: number,
   year: number
@@ -197,34 +231,30 @@ export async function getBreachedOutagesByVendorMonth(
   const db = getDb()
   const result = await db.execute({
     sql: `SELECT * FROM outages
-          WHERE vendor = ?
+          WHERE bank_id = ?
+            AND vendor = ?
             AND breach_status = 'breached'
             AND strftime('%m', started_at) = ?
             AND strftime('%Y', started_at) = ?`,
-    args: [vendor, String(month).padStart(2, '0'), String(year)],
-  })
-  return result.rows as unknown as Outage[]
-}
-
-export async function getOutagesByVendor(vendor: string): Promise<Outage[]> {
-  const db = getDb()
-  const result = await db.execute({
-    sql: 'SELECT * FROM outages WHERE vendor = ? ORDER BY started_at DESC',
-    args: [vendor],
+    args: [bankId, vendor, String(month).padStart(2, '0'), String(year)],
   })
   return result.rows as unknown as Outage[]
 }
 
 // ── SLA Rules ─────────────────────────────────────────────────────────────────
 
-export async function insertSLARule(
-  rule: Omit<SLARule, 'id'>
-): Promise<number> {
+export async function insertSLARule(rule: {
+  bank_id: number
+  vendor: string
+  product: string
+  uptime_pct: number
+  penalty_per_hr: number
+}): Promise<number> {
   const db = getDb()
   const result = await db.execute({
-    sql: `INSERT INTO sla_rules (vendor, product, uptime_pct, penalty_per_hr)
-          VALUES (?, ?, ?, ?)`,
-    args: [rule.vendor, rule.product, rule.uptime_pct, rule.penalty_per_hr],
+    sql: `INSERT INTO sla_rules (bank_id, vendor, product, uptime_pct, penalty_per_hr)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [rule.bank_id, rule.vendor, rule.product, rule.uptime_pct, rule.penalty_per_hr],
   })
   return Number(result.lastInsertRowid)
 }
@@ -237,14 +267,24 @@ export async function getSLARules(): Promise<SLARule[]> {
   return result.rows as unknown as SLARule[]
 }
 
+export async function getSLARulesByBank(bankId: number): Promise<SLARule[]> {
+  const db = getDb()
+  const result = await db.execute({
+    sql: 'SELECT * FROM sla_rules WHERE bank_id = ? ORDER BY vendor, product',
+    args: [bankId],
+  })
+  return result.rows as unknown as SLARule[]
+}
+
 export async function getSLARuleForProduct(
+  bankId: number,
   vendor: string,
   product: string
 ): Promise<SLARule | null> {
   const db = getDb()
   const result = await db.execute({
-    sql: 'SELECT * FROM sla_rules WHERE vendor = ? AND product = ? LIMIT 1',
-    args: [vendor, product],
+    sql: 'SELECT * FROM sla_rules WHERE bank_id = ? AND vendor = ? AND product = ? LIMIT 1',
+    args: [bankId, vendor, product],
   })
   return result.rows.length > 0 ? (result.rows[0] as unknown as SLARule) : null
 }
@@ -257,72 +297,63 @@ export async function deleteSLARule(id: number): Promise<void> {
   })
 }
 
-// ── Companies ─────────────────────────────────────────────────────────────────
+// ── Banks ─────────────────────────────────────────────────────────────────────
 
-export async function insertCompany(name: string, domains: string[]): Promise<number> {
+export async function insertBank(name: string, emailAlias: string): Promise<number> {
   const db = getDb()
   const token = crypto.randomUUID()
   const result = await db.execute({
-    sql: 'INSERT INTO companies (name, domains, access_token) VALUES (?, ?, ?)',
-    args: [name, JSON.stringify(domains), token],
+    sql: 'INSERT INTO banks (name, email_alias, access_token) VALUES (?, ?, ?)',
+    args: [name, emailAlias.toLowerCase().trim(), token],
   })
   return Number(result.lastInsertRowid)
 }
 
-export async function getCompanies(): Promise<Company[]> {
+export async function getBanks(): Promise<Bank[]> {
   const db = getDb()
-  const result = await db.execute('SELECT * FROM companies ORDER BY name')
-  return result.rows as unknown as Company[]
+  const result = await db.execute('SELECT * FROM banks ORDER BY name')
+  return result.rows as unknown as Bank[]
 }
 
-export async function getCompanyByToken(token: string): Promise<Company | null> {
+export async function getBankByToken(token: string): Promise<Bank | null> {
   const db = getDb()
   const result = await db.execute({
-    sql: 'SELECT * FROM companies WHERE access_token = ? LIMIT 1',
+    sql: 'SELECT * FROM banks WHERE access_token = ? LIMIT 1',
     args: [token],
   })
-  return result.rows.length > 0 ? (result.rows[0] as unknown as Company) : null
+  return result.rows.length > 0 ? (result.rows[0] as unknown as Bank) : null
 }
 
-export async function regenerateCompanyToken(id: number): Promise<string> {
+export async function getBankByAlias(alias: string): Promise<Bank | null> {
+  const db = getDb()
+  const result = await db.execute({
+    sql: 'SELECT * FROM banks WHERE email_alias = ? LIMIT 1',
+    args: [alias.toLowerCase().trim()],
+  })
+  return result.rows.length > 0 ? (result.rows[0] as unknown as Bank) : null
+}
+
+export async function regenerateBankToken(id: number): Promise<string> {
   const db = getDb()
   const token = crypto.randomUUID()
   await db.execute({
-    sql: 'UPDATE companies SET access_token = ? WHERE id = ?',
+    sql: 'UPDATE banks SET access_token = ? WHERE id = ?',
     args: [token, id],
   })
   return token
 }
 
-export async function getCompanyByDomain(senderEmail: string): Promise<Company | null> {
-  const companies = await getCompanies()
-  const senderDomain = senderEmail.split('@')[1]?.toLowerCase()
-  if (!senderDomain) return null
-
-  for (const company of companies) {
-    let parsed: string[] = []
-    try { parsed = JSON.parse(company.domains) } catch { continue }
-    for (const d of parsed) {
-      const cd = d.toLowerCase()
-      if (senderDomain === cd || senderDomain.endsWith('.' + cd)) {
-        return company
-      }
-    }
-  }
-  return null
-}
-
-export async function updateCompany(id: number, name: string, domains: string[]): Promise<void> {
+export async function updateBank(id: number, name: string, emailAlias: string): Promise<void> {
   const db = getDb()
   await db.execute({
-    sql: 'UPDATE companies SET name = ?, domains = ? WHERE id = ?',
-    args: [name, JSON.stringify(domains), id],
+    sql: 'UPDATE banks SET name = ?, email_alias = ? WHERE id = ?',
+    args: [name, emailAlias.toLowerCase().trim(), id],
   })
 }
 
-export async function deleteCompany(id: number): Promise<void> {
+export async function deleteBank(id: number): Promise<void> {
   const db = getDb()
-  await db.execute({ sql: 'DELETE FROM companies WHERE id = ?', args: [id] })
+  await db.execute({ sql: 'DELETE FROM banks WHERE id = ?', args: [id] })
 }
 
 // ── Products ──────────────────────────────────────────────────────────────────
@@ -377,7 +408,7 @@ function decryptAccount(row: EmailAccount & { password: string }): EmailAccount 
     const pwd = isEncrypted(row.password) ? decrypt(row.password) : row.password
     return { ...row, password: pwd }
   } catch {
-    return row // return as-is if decrypt fails (e.g. legacy plaintext without ENCRYPTION_KEY)
+    return row
   }
 }
 

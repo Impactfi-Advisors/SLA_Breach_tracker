@@ -4,8 +4,9 @@ import { testConnection } from '@/lib/imap'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  const id = parseInt(params.id, 10)
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await params
+  const id = parseInt(idStr, 10)
   if (isNaN(id) || id <= 0) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
   const account = await getEmailAccountById(id)

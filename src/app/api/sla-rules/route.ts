@@ -15,10 +15,13 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-  const { vendor, product, uptime_pct, penalty_per_hr } = body as Record<string, unknown>
+  const { bank_id, vendor, product, uptime_pct, penalty_per_hr } = body as Record<string, unknown>
 
-  if (!vendor || !product || uptime_pct == null || penalty_per_hr == null) {
+  if (!bank_id || !vendor || !product || uptime_pct == null || penalty_per_hr == null) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+  if (typeof bank_id !== 'number') {
+    return NextResponse.json({ error: 'bank_id must be a number' }, { status: 400 })
   }
   if (typeof vendor !== 'string' || typeof product !== 'string') {
     return NextResponse.json({ error: 'vendor and product must be strings' }, { status: 400 })
@@ -30,6 +33,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'penalty_per_hr must be greater than 0' }, { status: 400 })
   }
 
-  const id = await insertSLARule({ vendor, product, uptime_pct, penalty_per_hr })
-  return NextResponse.json({ id, vendor, product, uptime_pct, penalty_per_hr }, { status: 201 })
+  const id = await insertSLARule({ bank_id, vendor, product, uptime_pct, penalty_per_hr })
+  return NextResponse.json({ id, bank_id, vendor, product, uptime_pct, penalty_per_hr }, { status: 201 })
 }

@@ -268,7 +268,7 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  {['Vendor', 'Product', 'Started', 'Duration', 'Status', 'Penalty'].map(h => (
+                  {['Bank', 'Vendor', 'Product', 'Started', 'Duration', 'Status', 'Penalty'].map(h => (
                     <th key={h} className="text-left px-6 py-3 text-slate-400 font-medium text-xs uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -286,6 +286,7 @@ export default function DashboardPage() {
                     : 'bg-slate-100 text-slate-500'
                   return (
                     <tr key={o.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-3.5 text-slate-500 text-xs">{o.bank_id ? `#${o.bank_id}` : '—'}</td>
                       <td className="px-6 py-3.5 font-semibold text-slate-800">{o.vendor}</td>
                       <td className="px-6 py-3.5 text-slate-600">{o.product}</td>
                       <td className="px-6 py-3.5 text-slate-500 whitespace-nowrap">

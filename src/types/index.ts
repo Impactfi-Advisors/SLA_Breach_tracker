@@ -7,12 +7,14 @@ export interface ParsedEvent {
 
 export interface RawEvent extends ParsedEvent {
   id: number
+  bank_id: number | null
   raw_email: string
   created_at: string
 }
 
 export interface Outage {
   id: number
+  bank_id: number | null
   vendor: string
   product: string
   started_at: string       // ISO 8601 UTC
@@ -24,6 +26,7 @@ export interface Outage {
 
 export interface SLARule {
   id: number
+  bank_id: number | null
   vendor: string
   product: string
   uptime_pct: number    // e.g. 99.9
@@ -36,10 +39,10 @@ export interface BreachResult {
   excessMins: number
 }
 
-export interface Company {
+export interface Bank {
   id: number
   name: string
-  domains: string        // JSON array string: '["acme.com","status.acme.com"]'
+  email_alias: string    // e.g. "firstnational" → sla+firstnational@impactfiadvisors.com
   access_token: string | null
   created_at: string
 }

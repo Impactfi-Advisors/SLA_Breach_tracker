@@ -1,8 +1,8 @@
-import { getOutages } from '@/lib/db'
+import { getOutages, getBanks } from '@/lib/db'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
-import type { Outage } from '@/types'
+import type { Outage, Bank } from '@/types'
 
 function StatusBadge({ status, isActive }: { status: Outage['breach_status']; isActive: boolean }) {
   if (isActive) return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">ACTIVE</span>
@@ -27,7 +27,8 @@ function formatDuration(mins: number | null, resolvedAt: string | null): string 
 type Filter = 'all' | 'active' | 'breached' | 'within'
 
 export default async function BreachLogPage({ searchParams }: { searchParams: { filter?: string } }) {
-  const allOutages = await getOutages()
+  const [allOutages, banks] = await Promise.all([getOutages(), getBanks()])
+  const bankMap = new Map<number, Bank>(banks.map(b => [b.id, b]))
   const filter = (searchParams.filter ?? 'all') as Filter
 
   const outages = allOutages.filter(o => {
@@ -60,7 +61,6 @@ export default async function BreachLogPage({ searchParams }: { searchParams: { 
         </div>
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">
         {tabs.map(tab => (
           <Link
@@ -86,7 +86,7 @@ export default async function BreachLogPage({ searchParams }: { searchParams: { 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100">
-              {['Vendor', 'Product', 'Start', 'End', 'Duration', 'Status', 'Penalty'].map(h => (
+              {['Bank', 'Vendor', 'Product', 'Start', 'End', 'Duration', 'Status', 'Penalty'].map(h => (
                 <th key={h} className="text-left px-6 py-3.5 text-slate-400 font-medium text-xs uppercase tracking-wide whitespace-nowrap">
                   {h}
                 </th>
@@ -96,7 +96,7 @@ export default async function BreachLogPage({ searchParams }: { searchParams: { 
           <tbody>
             {outages.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-14 text-center">
+                <td colSpan={8} className="px-6 py-14 text-center">
                   <p className="text-slate-400 font-medium text-sm">No outages match this filter.</p>
                   {filter !== 'all' && (
                     <Link href="/breach-log" className="text-xs text-indigo-600 hover:underline mt-1 inline-block">
@@ -108,6 +108,11 @@ export default async function BreachLogPage({ searchParams }: { searchParams: { 
             ) : null}
             {outages.map(o => (
               <tr key={o.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                <td className="px-6 py-3.5">
+                  <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold whitespace-nowrap">
+                    {o.bank_id ? (bankMap.get(o.bank_id)?.name ?? `#${o.bank_id}`) : '—'}
+                  </span>
+                </td>
                 <td className="px-6 py-3.5 font-semibold text-slate-800">{o.vendor}</td>
                 <td className="px-6 py-3.5 text-slate-600">{o.product}</td>
                 <td className="px-6 py-3.5 text-slate-500 whitespace-nowrap">{new Date(o.started_at).toLocaleString()}</td>

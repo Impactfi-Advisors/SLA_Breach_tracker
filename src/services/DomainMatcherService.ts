@@ -1,15 +1,19 @@
-import { getCompanyByDomain } from '@/lib/db'
+import { getBankByAlias } from '@/lib/db'
+import type { Bank } from '@/types'
 
 export class DomainMatcherService {
   /**
-   * Given a sender email address, returns the matching vendor name from the
-   * companies registry, or null if no match found.
-   *
-   * Matches exact domain and parent-domain:
-   *   "alerts@status.acme.com" matches company with domain "acme.com"
+   * Extract the bank alias from a recipient address like sla+firstnational@impactfiadvisors.com
+   * and return the matching Bank record, or null if not found.
    */
-  static async matchVendor(senderEmail: string): Promise<string | null> {
-    const company = await getCompanyByDomain(senderEmail)
-    return company ? company.name : null
+  static extractAlias(toAddress: string): string | null {
+    const match = toAddress.match(/sla\+([^@]+)@/i)
+    return match ? match[1].toLowerCase() : null
+  }
+
+  static async matchBank(toAddress: string): Promise<Bank | null> {
+    const alias = DomainMatcherService.extractAlias(toAddress)
+    if (!alias) return null
+    return getBankByAlias(alias)
   }
 }

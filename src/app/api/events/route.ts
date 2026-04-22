@@ -9,6 +9,7 @@ import {
   resolveOutage,
   getSLARuleForProduct,
   getResolvedOutageMinsForMonth,
+  getBanks,
 } from '@/lib/db'
 import { SLAEngine } from '@/services/SLAEngine'
 
@@ -25,10 +26,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { vendor, product, event_type, timestamp, rawEmail } = body as Record<string, unknown>
+  const { bank_id, vendor, product, event_type, timestamp, rawEmail } = body as Record<string, unknown>
 
-  if (!vendor || !product || !event_type || !timestamp || !rawEmail) {
+  if (!bank_id || !vendor || !product || !event_type || !timestamp || !rawEmail) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+  if (typeof bank_id !== 'number') {
+    return NextResponse.json({ error: 'bank_id must be a number' }, { status: 400 })
   }
   if (typeof vendor !== 'string' || typeof product !== 'string' ||
       typeof timestamp !== 'string' || typeof rawEmail !== 'string') {
@@ -37,16 +41,21 @@ export async function POST(req: NextRequest) {
   if (event_type !== 'down' && event_type !== 'up') {
     return NextResponse.json({ error: 'event_type must be down or up' }, { status: 400 })
   }
-  // Issue 3: validate timestamp is a parseable ISO date
   if (isNaN(new Date(timestamp).getTime())) {
     return NextResponse.json({ error: 'timestamp must be a valid ISO 8601 date string' }, { status: 400 })
   }
 
-  const eventId = await insertEvent({ vendor, product, event_type, timestamp, raw_email: rawEmail })
+  // Validate bank exists
+  const banks = await getBanks()
+  const bank = banks.find(b => b.id === bank_id)
+  if (!bank) {
+    return NextResponse.json({ error: 'Bank not found' }, { status: 400 })
+  }
+
+  const eventId = await insertEvent({ bank_id, vendor, product, event_type, timestamp, raw_email: rawEmail })
 
   if (event_type === 'down') {
-    // Issue 2: check for existing open outage before creating a new one
-    const existingOutage = await getOpenOutage(vendor, product)
+    const existingOutage = await getOpenOutage(bank_id, vendor, product)
     if (existingOutage) {
       return NextResponse.json({
         eventId,
@@ -54,12 +63,12 @@ export async function POST(req: NextRequest) {
         warning: 'An open outage already exists for this product; duplicate down event ignored',
       })
     }
-    const outageId = await insertOutage(vendor, product, timestamp)
+    const outageId = await insertOutage(bank_id, vendor, product, timestamp)
     return NextResponse.json({ eventId, outageId })
   }
 
   // 'up' — resolve the open outage
-  const openOutage = await getOpenOutage(vendor, product)
+  const openOutage = await getOpenOutage(bank_id, vendor, product)
   if (!openOutage) {
     return NextResponse.json({
       eventId,
@@ -69,7 +78,7 @@ export async function POST(req: NextRequest) {
   }
 
   const durationMins = SLAEngine.durationMins(openOutage.started_at, timestamp)
-  const rule = await getSLARuleForProduct(vendor, product)
+  const rule = await getSLARuleForProduct(bank_id, vendor, product)
 
   let breachStatus = 'pending'
   let penaltyUsd: number | null = null
@@ -78,8 +87,7 @@ export async function POST(req: NextRequest) {
     const dt = new Date(openOutage.started_at)
     const month = dt.getUTCMonth() + 1
     const year = dt.getUTCFullYear()
-    // Issue 1: sum prior resolved outage durations for this vendor+product in the same month
-    const priorMins = await getResolvedOutageMinsForMonth(vendor, product, month, year)
+    const priorMins = await getResolvedOutageMinsForMonth(bank_id, vendor, product, month, year)
     const result = SLAEngine.computeBreachStatus({
       totalOutageMins: priorMins + durationMins,
       uptimePct: rule.uptime_pct,

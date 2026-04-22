@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import type { Outage, SLARule } from '@/types'
 
 interface PortalData {
-  company: { id: number; name: string }
+  bank: { id: number; name: string }
   stats: {
     activeOutages: number
     penaltyThisMonth: number
@@ -88,7 +88,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
     )
   }
 
-  const { company, stats, slaRules, outages } = data
+  const { bank, stats, slaRules, outages } = data
 
   const filtered = outages.filter(o => {
     if (tab === 'active') return !o.resolved_at
@@ -111,7 +111,7 @@ export default function PortalPage({ params }: { params: { token: string } }) {
         <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-1">SLA Portal</div>
-            <h1 className="text-xl font-bold text-slate-900">{company.name}</h1>
+            <h1 className="text-xl font-bold text-slate-900">{bank.name}</h1>
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-400">Viewing period</div>

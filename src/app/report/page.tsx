@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { Outage } from '@/types'
+import type { Bank, SLARule } from '@/types'
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -9,6 +9,8 @@ const MONTHS = [
 ]
 
 export default function ReportPage() {
+  const [banks, setBanks] = useState<Bank[]>([])
+  const [bankId, setBankId] = useState<number | null>(null)
   const [vendors, setVendors] = useState<string[]>([])
   const [vendor, setVendor] = useState('')
   const [month, setMonth] = useState(new Date().getMonth() + 1)
@@ -19,17 +21,23 @@ export default function ReportPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    fetch('/api/outages')
-      .then(r => r.json())
-      .then((data: Outage[]) => {
-        const unique = Array.from(new Set(data.map(o => o.vendor))).sort()
-        setVendors(unique)
-        if (unique.length > 0) setVendor(unique[0])
-      })
+    fetch('/api/banks').then(r => r.json()).then((data: Bank[]) => {
+      setBanks(data)
+      if (data.length > 0) setBankId(data[0].id)
+    })
   }, [])
 
+  useEffect(() => {
+    if (!bankId) { setVendors([]); setVendor(''); return }
+    fetch('/api/sla-rules').then(r => r.json()).then((rules: SLARule[]) => {
+      const bankVendors = Array.from(new Set(rules.filter(r => r.bank_id === bankId).map(r => r.vendor))).sort()
+      setVendors(bankVendors)
+      setVendor(bankVendors[0] ?? '')
+    })
+  }, [bankId])
+
   async function handleGenerate() {
-    if (!vendor) return
+    if (!bankId || !vendor) return
     setLoading(true)
     setError(null)
     setLetter(null)
@@ -37,7 +45,7 @@ export default function ReportPage() {
       const res = await fetch('/api/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vendor, month, year }),
+        body: JSON.stringify({ bank_id: bankId, vendor, month, year }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error as string)
@@ -78,9 +86,15 @@ export default function ReportPage() {
         <p className="text-sm text-slate-500 mt-1">Generate an AI-written chargeback letter for a vendor&apos;s breached outages.</p>
       </div>
 
-      {/* Controls */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
         <div className="flex gap-4 items-end flex-wrap">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5">Bank</label>
+            <select className={selectClass} value={bankId ?? ''} onChange={e => setBankId(parseInt(e.target.value, 10))}>
+              {banks.length === 0 && <option value="">No banks</option>}
+              {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Vendor</label>
             <select className={selectClass} value={vendor} onChange={e => setVendor(e.target.value)}>
@@ -103,7 +117,7 @@ export default function ReportPage() {
           <button
             className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold transition-colors"
             onClick={handleGenerate}
-            disabled={loading || !vendor}
+            disabled={loading || !vendor || !bankId}
           >
             {loading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             {loading ? 'Generating…' : 'Generate with AI'}

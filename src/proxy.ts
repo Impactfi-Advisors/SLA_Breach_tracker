@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // Browser UI:   sends HttpOnly cookie `admin_session` (set by /api/auth/login)
 // Programmatic: sends `Authorization: Bearer <ADMIN_API_SECRET>` header (cron, scripts)
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const secret = process.env.ADMIN_API_SECRET
   if (!secret || secret.length < 16) {
     console.error('[middleware] ADMIN_API_SECRET is not set or too short')

@@ -58,8 +58,8 @@ const navLinks = [
     ),
   },
   {
-    href: '/companies',
-    label: 'Companies',
+    href: '/banks',
+    label: 'Banks',
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <rect x="1" y="5" width="14" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>

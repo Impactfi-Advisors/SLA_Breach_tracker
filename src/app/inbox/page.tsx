@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { ParsedEvent } from '@/types'
+import type { ParsedEvent, Bank } from '@/types'
 
 type ToastType = 'success' | 'warning' | 'breach' | 'info'
 interface ToastState { msg: string; type: ToastType }
@@ -14,12 +14,21 @@ const TOAST_STYLE: Record<ToastType, string> = {
 }
 
 export default function InboxPage() {
+  const [banks, setBanks] = useState<Bank[]>([])
+  const [bankId, setBankId] = useState<number | null>(null)
   const [rawEmail, setRawEmail] = useState('')
   const [parsed, setParsed] = useState<ParsedEvent | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
   const [parsing, setParsing] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/banks').then(r => r.json()).then((data: Bank[]) => {
+      setBanks(data)
+      if (data.length > 0) setBankId(data[0].id)
+    })
+  }, [])
 
   useEffect(() => {
     if (!toast) return
@@ -49,14 +58,14 @@ export default function InboxPage() {
   }
 
   async function handleSave() {
-    if (!parsed) return
+    if (!parsed || !bankId) return
     setSaving(true)
     setError(null)
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...parsed, rawEmail }),
+        body: JSON.stringify({ ...parsed, bank_id: bankId, rawEmail }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -82,11 +91,13 @@ export default function InboxPage() {
     }
   }
 
+  const inputClass = 'w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400'
+
   return (
     <div className="p-8 max-w-2xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Email Inbox</h1>
-        <p className="text-sm text-slate-500 mt-1">Parse a vendor notification email and log the outage event.</p>
+        <p className="text-sm text-slate-500 mt-1">Parse a vendor notification email and log the outage event for a specific bank.</p>
       </div>
 
       {toast && (
@@ -95,6 +106,18 @@ export default function InboxPage() {
           <button className="ml-3 opacity-50 hover:opacity-100 shrink-0 text-lg leading-none" onClick={() => setToast(null)}>×</button>
         </div>
       )}
+
+      {/* Bank selector */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-4 p-6">
+        <label className="block text-xs font-semibold text-slate-500 mb-1.5">Bank (client)</label>
+        {banks.length === 0 ? (
+          <p className="text-sm text-amber-700">No banks registered. <a href="/banks" className="underline">Add a bank first.</a></p>
+        ) : (
+          <select className={inputClass} value={bankId ?? ''} onChange={e => setBankId(parseInt(e.target.value, 10))}>
+            {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
+      </div>
 
       {/* Step 1 */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-4">
@@ -162,7 +185,7 @@ export default function InboxPage() {
             <button
               className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 text-sm font-semibold transition-colors"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !bankId}
             >
               {saving && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               {saving ? 'Logging event…' : 'Log Event'}

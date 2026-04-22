@@ -3,6 +3,7 @@ import type { Outage } from '@/types'
 
 export class ReportGenerator {
   static async generate(params: {
+    bankName: string
     vendor: string
     month: number
     year: number
@@ -20,7 +21,7 @@ export class ReportGenerator {
       )
       .join('\n')
 
-    const prompt = `Write a formal chargeback letter to ${params.vendor} for SLA breaches in ${monthName} ${params.year}.
+    const prompt = `Write a formal chargeback letter from ${params.bankName} to ${params.vendor} for SLA breaches in ${monthName} ${params.year}.
 
 SLA Breaches:
 ${breachLines}

@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCompanyByToken, getOutagesByVendor, getSLARules } from '@/lib/db'
+import { getBankByToken, getOutagesByBank, getSLARulesByBank } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(_req: NextRequest, { params }: { params: { token: string } }) {
-  const company = await getCompanyByToken(params.token)
-  if (!company) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params
+  const bank = await getBankByToken(token)
+  if (!bank) {
     return NextResponse.json({ error: 'Invalid or expired portal link' }, { status: 404 })
   }
 
-  const [allOutages, allRules] = await Promise.all([
-    getOutagesByVendor(company.name),
-    getSLARules(),
+  const [allOutages, slaRules] = await Promise.all([
+    getOutagesByBank(bank.id),
+    getSLARulesByBank(bank.id),
   ])
 
-  // Limit to last 12 months of data for the portal
+  // Limit to last 12 months
   const cutoff = new Date()
   cutoff.setMonth(cutoff.getMonth() - 12)
   const outages = allOutages.filter(o => new Date(o.started_at) >= cutoff)
-
-  const slaRules = allRules.filter(r => r.vendor === company.name)
 
   const now = new Date()
   const month = now.getUTCMonth() + 1
@@ -40,7 +39,7 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
   const withinCount = thisMonthOutages.filter(o => o.breach_status === 'within').length
 
   return NextResponse.json({
-    company: { id: company.id, name: company.name },
+    bank: { id: bank.id, name: bank.name },
     stats: {
       activeOutages: activeOutages.length,
       penaltyThisMonth,

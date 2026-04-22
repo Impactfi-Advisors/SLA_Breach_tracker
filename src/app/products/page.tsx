@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { Product, Company } from '@/types'
+import type { Product } from '@/types'
 
 const CATEGORIES = ['core', 'mobile', 'web', 'api', 'other'] as const
 type Category = typeof CATEGORIES[number]
@@ -16,7 +16,6 @@ const CATEGORY_STYLES: Record<Category, string> = {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
   const [form, setForm] = useState({ vendor: '', name: '', category: 'core' as Category })
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -30,13 +29,8 @@ export default function ProductsPage() {
   }, [toast])
 
   async function loadData() {
-    const [pRes, cRes] = await Promise.all([fetch('/api/products'), fetch('/api/companies')])
+    const pRes = await fetch('/api/products')
     setProducts(await pRes.json())
-    const cos: Company[] = await cRes.json()
-    setCompanies(cos)
-    if (cos.length > 0 && !form.vendor) {
-      setForm(f => ({ ...f, vendor: cos[0].name }))
-    }
   }
 
   useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -151,15 +145,8 @@ export default function ProductsPage() {
         <form onSubmit={handleAdd} className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Vendor</label>
-            {companies.length > 0 ? (
-              <select className={selectClass} value={form.vendor}
-                onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))}>
-                {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-            ) : (
-              <input className={inputClass} placeholder="Add a company first" value={form.vendor}
-                onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} required />
-            )}
+            <input className={inputClass} placeholder="e.g. Fiserv, Jack Henry" value={form.vendor}
+              onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} required />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">Product name</label>

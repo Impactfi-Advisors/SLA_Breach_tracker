@@ -14,7 +14,8 @@ import type { IngestionResult } from '@/types'
 
 interface IngestInput {
   rawEmail: string
-  senderEmail: string
+  toEmail: string      // recipient: sla+{alias}@impactfiadvisors.com
+  senderEmail: string  // kept for logging
   uid: number
   accountId: number
   subject?: string
@@ -22,11 +23,11 @@ interface IngestInput {
 
 export class EmailIngestionService {
   static async ingest(input: IngestInput): Promise<IngestionResult> {
-    const { rawEmail, senderEmail, uid, accountId, subject } = input
+    const { rawEmail, toEmail, senderEmail, uid, accountId, subject } = input
 
-    // Step 1: match sender domain to a known vendor
-    const vendor = await DomainMatcherService.matchVendor(senderEmail)
-    if (!vendor) {
+    // Step 1: match recipient alias to a registered bank
+    const bank = await DomainMatcherService.matchBank(toEmail)
+    if (!bank) {
       await insertPollLog({
         accountId,
         messageUid: uid,
@@ -34,15 +35,15 @@ export class EmailIngestionService {
         sender: senderEmail,
         matchedVendor: null,
         status: 'skipped',
-        errorMsg: `No vendor match for domain: ${senderEmail.split('@')[1] ?? senderEmail}`,
+        errorMsg: `No bank match for alias in TO: ${toEmail}`,
       })
       return { status: 'skipped' }
     }
 
-    // Step 2: parse email with Claude (hint vendor so it matches our registry exactly)
+    // Step 2: parse email with Claude to extract vendor/product/event_type/timestamp
     let parsed
     try {
-      parsed = await EmailParserService.parse(rawEmail, vendor)
+      parsed = await EmailParserService.parse(rawEmail)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       await insertPollLog({
@@ -50,52 +51,43 @@ export class EmailIngestionService {
         messageUid: uid,
         subject: subject ?? null,
         sender: senderEmail,
-        matchedVendor: vendor,
+        matchedVendor: null,
         status: 'error',
         errorMsg: msg,
       })
-      return { status: 'error', errorMsg: msg, vendor }
+      return { status: 'error', errorMsg: msg }
     }
 
-    // Prompt injection defense: enforce vendor match strictly
-    if (parsed.vendor !== vendor) {
-      const msg = `Vendor mismatch after parse: expected "${vendor}", got "${parsed.vendor}"`
-      await insertPollLog({
-        accountId, messageUid: uid, subject: subject ?? null, sender: senderEmail,
-        matchedVendor: vendor, status: 'error', errorMsg: msg,
-      })
-      return { status: 'error', errorMsg: msg, vendor }
-    }
-
-    // Validate event_type in case of prompt injection
+    // Validate event_type against prompt injection
     if (parsed.event_type !== 'down' && parsed.event_type !== 'up') {
       const msg = `Invalid event_type after parse: "${parsed.event_type}"`
       await insertPollLog({
         accountId, messageUid: uid, subject: subject ?? null, sender: senderEmail,
-        matchedVendor: vendor, status: 'error', errorMsg: msg,
+        matchedVendor: parsed.vendor, status: 'error', errorMsg: msg,
       })
-      return { status: 'error', errorMsg: msg, vendor }
+      return { status: 'error', errorMsg: msg }
     }
 
-    // Step 3: check for duplicate open outage (down events only)
+    // Step 3: check for duplicate open outage
     if (parsed.event_type === 'down') {
-      const existing = await getOpenOutage(parsed.vendor, parsed.product)
+      const existing = await getOpenOutage(bank.id, parsed.vendor, parsed.product)
       if (existing) {
         await insertPollLog({
           accountId,
           messageUid: uid,
           subject: subject ?? null,
           sender: senderEmail,
-          matchedVendor: vendor,
+          matchedVendor: parsed.vendor,
           status: 'duplicate',
           errorMsg: `Open outage already exists (id=${existing.id})`,
         })
-        return { status: 'duplicate', vendor }
+        return { status: 'duplicate', vendor: parsed.vendor }
       }
     }
 
     // Step 4: insert event
     const eventId = await insertEvent({
+      bank_id: bank.id,
       vendor: parsed.vendor,
       product: parsed.product,
       event_type: parsed.event_type,
@@ -105,12 +97,12 @@ export class EmailIngestionService {
 
     // Step 5: outage lifecycle
     if (parsed.event_type === 'down') {
-      await insertOutage(parsed.vendor, parsed.product, parsed.timestamp)
+      await insertOutage(bank.id, parsed.vendor, parsed.product, parsed.timestamp)
     } else {
-      const openOutage = await getOpenOutage(parsed.vendor, parsed.product)
+      const openOutage = await getOpenOutage(bank.id, parsed.vendor, parsed.product)
       if (openOutage) {
         const durationMins = SLAEngine.durationMins(openOutage.started_at, parsed.timestamp)
-        const rule = await getSLARuleForProduct(parsed.vendor, parsed.product)
+        const rule = await getSLARuleForProduct(bank.id, parsed.vendor, parsed.product)
 
         let breachStatus = 'pending'
         let penaltyUsd: number | null = null
@@ -119,7 +111,7 @@ export class EmailIngestionService {
           const dt = new Date(openOutage.started_at)
           const month = dt.getUTCMonth() + 1
           const year = dt.getUTCFullYear()
-          const priorMins = await getResolvedOutageMinsForMonth(parsed.vendor, parsed.product, month, year)
+          const priorMins = await getResolvedOutageMinsForMonth(bank.id, parsed.vendor, parsed.product, month, year)
           const result = SLAEngine.computeBreachStatus({
             totalOutageMins: priorMins + durationMins,
             uptimePct: rule.uptime_pct,
@@ -140,11 +132,11 @@ export class EmailIngestionService {
       messageUid: uid,
       subject: subject ?? null,
       sender: senderEmail,
-      matchedVendor: vendor,
+      matchedVendor: parsed.vendor,
       status: 'processed',
       eventId,
     })
 
-    return { status: 'processed', eventId, vendor }
+    return { status: 'processed', eventId, vendor: parsed.vendor }
   }
 }
