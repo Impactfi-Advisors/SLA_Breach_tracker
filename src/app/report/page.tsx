@@ -77,7 +77,7 @@ export default function ReportPage() {
 
   const currentYear = new Date().getFullYear()
   const years = [currentYear - 1, currentYear]
-  const selectClass = 'border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400'
+  const selectClass = 'border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400'
 
   return (
     <div className="p-8 max-w-3xl">

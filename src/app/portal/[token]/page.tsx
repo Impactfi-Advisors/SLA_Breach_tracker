@@ -324,7 +324,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
           </div>
         </div>
         {/* Mobile nav tabs */}
-        <div className="flex overflow-x-auto border-t border-slate-100 lg:hidden">
+        <div className="flex overflow-x-auto border-t border-slate-100 md:hidden">
           {NAV.map(n => (
             <button key={n.id} onClick={() => scrollTo(n.id)}
               className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
@@ -341,7 +341,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
 
       <div className="flex">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex flex-col w-56 shrink-0 sticky top-[69px] h-[calc(100vh-69px)] bg-white border-r border-slate-100 p-4 overflow-y-auto">
+        <aside className="hidden md:flex flex-col w-56 shrink-0 sticky top-[69px] h-[calc(100vh-69px)] bg-white border-r border-slate-100 p-4 overflow-y-auto">
           <nav className="space-y-1">
             {NAV.map(n => (
               <button key={n.id} onClick={() => scrollTo(n.id)}
@@ -364,7 +364,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-w-0 px-4 py-8 lg:px-10 lg:py-10 space-y-16 max-w-4xl">
+        <main className="flex-1 min-w-0 px-4 py-8 md:px-10 md:py-10 space-y-16 max-w-4xl">
 
           {/* Overview */}
           <section id="overview" ref={el => { sectionRefs.current.overview = el }}>
