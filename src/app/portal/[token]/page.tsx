@@ -135,6 +135,25 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+const MAX_USES = 2
+
+function usageKey(token: string, type: 'rpt' | 've') {
+  const { month, year } = currentMonthYear()
+  return `portal_${type}_${token}_${year}_${month}`
+}
+
+function readUsage(key: string): number {
+  try { return parseInt(localStorage.getItem(key) ?? '0', 10) || 0 } catch { return 0 }
+}
+
+function bumpUsage(key: string): number {
+  try {
+    const next = readUsage(key) + 1
+    localStorage.setItem(key, String(next))
+    return next
+  } catch { return MAX_USES }
+}
+
 export default function PortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const [data, setData] = useState<PortalData | null>(null)
@@ -150,6 +169,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   const [rptLoading, setRptLoading] = useState(false)
   const [rptResult, setRptResult] = useState<{ letter: string; totalPenalty: number; outageCount: number } | null>(null)
   const [rptError, setRptError] = useState<string | null>(null)
+  const [rptUses, setRptUses] = useState(0)
 
   // Vendor email state
   const [veVendor, setVeVendor] = useState('')
@@ -158,6 +178,13 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   const [veLoading, setVeLoading] = useState(false)
   const [veResult, setVeResult] = useState<{ email: string; totalPenalty: number; outageCount: number } | null>(null)
   const [veError, setVeError] = useState<string | null>(null)
+  const [veUses, setVeUses] = useState(0)
+
+  // Load usage counts from localStorage on mount
+  useEffect(() => {
+    setRptUses(readUsage(usageKey(token, 'rpt')))
+    setVeUses(readUsage(usageKey(token, 've')))
+  }, [token])
 
   const sectionRefs = useRef<Record<Section, HTMLElement | null>>({
     overview: null, sla: null, history: null, reports: null, 'vendor-email': null, contact: null,
@@ -192,7 +219,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   }
 
   const generateReport = async () => {
-    if (!rptVendor) return
+    if (!rptVendor || rptUses >= MAX_USES) return
     setRptLoading(true); setRptError(null); setRptResult(null)
     try {
       const res = await fetch(`/api/portal/${token}/report`, {
@@ -202,7 +229,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
       })
       const d = await res.json()
       if (!res.ok) setRptError(d.error ?? 'Failed to generate report')
-      else setRptResult(d)
+      else { setRptResult(d); setRptUses(bumpUsage(usageKey(token, 'rpt'))) }
     } catch {
       setRptError('Failed to generate report')
     } finally {
@@ -211,7 +238,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   }
 
   const generateVendorEmail = async () => {
-    if (!veVendor) return
+    if (!veVendor || veUses >= MAX_USES) return
     setVeLoading(true); setVeError(null); setVeResult(null)
     try {
       const res = await fetch(`/api/portal/${token}/vendor-email`, {
@@ -221,7 +248,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
       })
       const d = await res.json()
       if (!res.ok) setVeError(d.error ?? 'Failed to generate email')
-      else setVeResult(d)
+      else { setVeResult(d); setVeUses(bumpUsage(usageKey(token, 've'))) }
     } catch {
       setVeError('Failed to generate email')
     } finally {
@@ -468,14 +495,19 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
                   month={rptMonth} setMonth={setRptMonth}
                   year={rptYear} setYear={setRptYear}
                 />
-                <button
-                  onClick={generateReport}
-                  disabled={!rptVendor || rptLoading}
-                  className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                  {rptLoading ? (
-                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
-                  ) : 'Generate Report'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={generateReport}
+                    disabled={!rptVendor || rptLoading || rptUses >= MAX_USES}
+                    className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                    {rptLoading ? (
+                      <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
+                    ) : 'Generate Report'}
+                  </button>
+                  <span className={`text-xs font-medium ${rptUses >= MAX_USES ? 'text-red-500' : 'text-slate-400'}`}>
+                    {rptUses >= MAX_USES ? 'Monthly limit reached' : `${MAX_USES - rptUses} of ${MAX_USES} remaining this month`}
+                  </span>
+                </div>
               </div>
 
               {rptError && (
@@ -515,14 +547,19 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
                   month={veMonth} setMonth={setVeMonth}
                   year={veYear} setYear={setVeYear}
                 />
-                <button
-                  onClick={generateVendorEmail}
-                  disabled={!veVendor || veLoading}
-                  className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                  {veLoading ? (
-                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
-                  ) : 'Generate Email Draft'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={generateVendorEmail}
+                    disabled={!veVendor || veLoading || veUses >= MAX_USES}
+                    className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                    {veLoading ? (
+                      <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
+                    ) : 'Generate Email Draft'}
+                  </button>
+                  <span className={`text-xs font-medium ${veUses >= MAX_USES ? 'text-red-500' : 'text-slate-400'}`}>
+                    {veUses >= MAX_USES ? 'Monthly limit reached' : `${MAX_USES - veUses} of ${MAX_USES} remaining this month`}
+                  </span>
+                </div>
               </div>
 
               {veError && (
