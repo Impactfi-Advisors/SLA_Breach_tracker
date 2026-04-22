@@ -34,6 +34,7 @@ export const config = {
   matcher: [
     // Admin API routes
     '/api/companies/:path*',
+    '/api/banks/:path*',
     '/api/sla-rules/:path*',
     '/api/events/:path*',
     '/api/report/:path*',
@@ -42,7 +43,11 @@ export const config = {
     '/api/products/:path*',
     '/api/poll-log/:path*',
     '/api/outages/:path*',
+    '/api/poll-now/:path*',
+    '/api/insights/:path*',
     // Admin UI pages (redirect to login if no cookie)
+    '/',
+    '/banks/:path*',
     '/companies/:path*',
     '/products/:path*',
     '/sla-config/:path*',
