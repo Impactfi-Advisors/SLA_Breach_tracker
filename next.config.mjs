@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['@libsql/client', 'imapflow'],
+  serverExternalPackages: ['imapflow'],
 }
 
 export default nextConfig
