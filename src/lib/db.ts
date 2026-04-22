@@ -229,6 +229,25 @@ export async function getBreachedOutagesByVendorMonth(
   return rows as unknown as Outage[]
 }
 
+export async function getBreachedOutagesByVendorAllBanks(
+  vendor: string,
+  month: number,
+  year: number
+): Promise<(Outage & { bank_name: string })[]> {
+  const sql = getDb()
+  const rows = await sql`
+    SELECT o.*, b.name AS bank_name
+    FROM outages o
+    JOIN banks b ON b.id = o.bank_id
+    WHERE o.vendor = ${vendor}
+      AND o.breach_status = 'breached'
+      AND EXTRACT(MONTH FROM o.started_at::timestamp) = ${month}
+      AND EXTRACT(YEAR FROM o.started_at::timestamp) = ${year}
+    ORDER BY b.name, o.started_at
+  `
+  return rows as unknown as (Outage & { bank_name: string })[]
+}
+
 // ── SLA Rules ─────────────────────────────────────────────────────────────────
 
 export async function insertSLARule(rule: {

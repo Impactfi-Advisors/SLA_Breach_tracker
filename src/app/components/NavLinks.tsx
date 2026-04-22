@@ -47,17 +47,6 @@ const navLinks = [
     ),
   },
   {
-    href: '/report',
-    label: 'Reports',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M9 1H3a1 1 0 00-1 1v12a1 1 0 001 1h10a1 1 0 001-1V6L9 1z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-        <path d="M9 1v5h5" stroke="currentColor" strokeWidth="1.5"/>
-        <path d="M5 9h6M5 12h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    ),
-  },
-  {
     href: '/banks',
     label: 'Banks',
     icon: (
