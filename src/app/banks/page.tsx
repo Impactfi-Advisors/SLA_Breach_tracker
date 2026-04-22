@@ -46,7 +46,11 @@ export default function BanksPage() {
   }
 
   async function handleDelete(id: number) {
-    await fetch(`/api/banks/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/banks/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setToast(`Delete failed: ${data.error ?? res.status}`)
+    }
     setConfirmDelete(null)
     await loadBanks()
   }

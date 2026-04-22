@@ -332,6 +332,9 @@ export async function updateBank(id: number, name: string, emailAlias: string): 
 
 export async function deleteBank(id: number): Promise<void> {
   const sql = getDb()
+  await sql`DELETE FROM sla_rules WHERE bank_id = ${id}`
+  await sql`DELETE FROM outages WHERE bank_id = ${id}`
+  await sql`DELETE FROM events WHERE bank_id = ${id}`
   await sql`DELETE FROM banks WHERE id = ${id}`
 }
 
