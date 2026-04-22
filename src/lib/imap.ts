@@ -15,7 +15,7 @@ export async function fetchNewMessages(
   const client = new ImapFlow({
     host: account.host,
     port: account.port,
-    secure: account.tls === 1,
+    secure: !!account.tls,
     auth: {
       user: account.username,
       pass: account.password,
@@ -65,7 +65,7 @@ export async function testConnection(
   const client = new ImapFlow({
     host: account.host,
     port: account.port,
-    secure: account.tls === 1,
+    secure: !!account.tls,
     auth: {
       user: account.username,
       pass: account.password,
