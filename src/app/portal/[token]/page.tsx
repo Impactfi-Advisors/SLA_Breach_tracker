@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import type { Outage, SLARule } from '@/types'
 
 interface PortalData {
@@ -45,20 +45,21 @@ function fmt(ts: string) {
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export default function PortalPage({ params }: { params: { token: string } }) {
+export default function PortalPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = use(params)
   const [data, setData] = useState<PortalData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<FilterTab>('all')
 
   useEffect(() => {
-    fetch(`/api/portal/${params.token}`)
+    fetch(`/api/portal/${token}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error)
         else setData(d)
       })
       .catch(() => setError('Failed to load portal data'))
-  }, [params.token])
+  }, [token])
 
   if (error) {
     return (
